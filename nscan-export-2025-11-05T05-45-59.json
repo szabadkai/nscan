@@ -1,0 +1,545 @@
+{
+  "metadata": {
+    "timestamp": "2025-11-05T05:45:59.465Z",
+    "deviceCount": 1,
+    "running": false,
+    "currentPhase": "deep-scan",
+    "duration": 133.761,
+    "scanners": {
+      "arp": {
+        "name": "ArpScanner",
+        "running": false,
+        "deviceCount": 18,
+        "startTime": 1762321425708,
+        "endTime": 1762321427697,
+        "duration": 1.989
+      },
+      "tcpdump": {
+        "name": "TcpdumpScanner",
+        "running": true,
+        "deviceCount": 0,
+        "startTime": 1762321425706,
+        "endTime": null,
+        "duration": 133.759
+      },
+      "nmap": {
+        "name": "NmapScanner",
+        "running": false,
+        "deviceCount": 16,
+        "startTime": 1762321427700,
+        "endTime": 1762321556119,
+        "duration": 128.419
+      }
+    }
+  },
+  "devices": [
+    {
+      "ip": "192.168.1.1",
+      "mac": "84:D8:1B:49:F4:74",
+      "hostname": "Unknown",
+      "manufacturer": "TP-Link Technologies",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Router/Gateway",
+      "ports": [
+        53,
+        80,
+        443,
+        1900
+      ],
+      "services": [
+        {
+          "port": 53,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "domain",
+          "version": "Unbound"
+        },
+        {
+          "port": 80,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "http",
+          "version": "BusyBox http 1.19.4"
+        },
+        {
+          "port": 443,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/http",
+          "version": "BusyBox http 1.19.4"
+        },
+        {
+          "port": 1900,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "upnp",
+          "version": "MiniUPnP 1.8 (TP-LINK router; UPnP 1.1)"
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.638Z",
+      "lastSeen": "2025-11-05T05:44:14.808Z",
+      "confidence": 65
+    },
+    {
+      "ip": "192.168.1.118",
+      "mac": "D8:AA:59:32:86:2D",
+      "hostname": "Unknown",
+      "manufacturer": "Tonly Technology",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.653Z",
+      "lastSeen": "2025-11-05T05:44:23.955Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.103",
+      "mac": "E4:F0:42:97:66:08",
+      "hostname": "Unknown",
+      "manufacturer": "Google",
+      "os": "Google Home device",
+      "osVersion": "",
+      "model": "",
+      "usage": "Mobile Device",
+      "ports": [
+        8008,
+        8009,
+        8443,
+        9000,
+        10001
+      ],
+      "services": [
+        {
+          "port": 8008,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "http?",
+          "version": ""
+        },
+        {
+          "port": 8009,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/castv2",
+          "version": "Ninja Sphere Chromecast driver"
+        },
+        {
+          "port": 8443,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/https-alt?",
+          "version": ""
+        },
+        {
+          "port": 9000,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/cslistener?",
+          "version": ""
+        },
+        {
+          "port": 10001,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/scp-config?",
+          "version": ""
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.656Z",
+      "lastSeen": "2025-11-05T05:44:17.850Z",
+      "confidence": 80
+    },
+    {
+      "ip": "192.168.1.141",
+      "mac": "98:FA:9B:4F:AC:85",
+      "hostname": "TRUENAS",
+      "manufacturer": "LCFC(HeFei",
+      "os": "Linux 4.15 - 5.19",
+      "osVersion": "4",
+      "model": "",
+      "usage": "Server",
+      "ports": [
+        80,
+        111,
+        139,
+        443,
+        445,
+        5357,
+        5900,
+        5901
+      ],
+      "services": [
+        {
+          "port": 80,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "http",
+          "version": "nginx"
+        },
+        {
+          "port": 111,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "rpcbind",
+          "version": ""
+        },
+        {
+          "port": 139,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "netbios-ssn",
+          "version": "Samba smbd 4"
+        },
+        {
+          "port": 443,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/http",
+          "version": "nginx"
+        },
+        {
+          "port": 445,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "netbios-ssn",
+          "version": "Samba smbd 4"
+        },
+        {
+          "port": 5357,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "http",
+          "version": "BaseHTTPServer 0.6 (Python 3.11.9)"
+        },
+        {
+          "port": 5900,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "vnc?",
+          "version": ""
+        },
+        {
+          "port": 5901,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "vnc-1?",
+          "version": ""
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.661Z",
+      "lastSeen": "2025-11-05T05:44:37.888Z",
+      "confidence": 90
+    },
+    {
+      "ip": "192.168.1.164",
+      "mac": "36:5D:F3:B8:1C:AC",
+      "hostname": "Unknown",
+      "manufacturer": "Unknown",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.663Z",
+      "lastSeen": "2025-11-05T05:44:25.697Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.106",
+      "mac": "4C:B9:EA:72:A2:A9",
+      "hostname": "Unknown",
+      "manufacturer": "iRobot Corporation",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.666Z",
+      "lastSeen": "2025-11-05T05:43:47.638Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.119",
+      "mac": "DC:DA:0C:28:BB:B4",
+      "hostname": "Unknown",
+      "manufacturer": "Espressif",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "IoT Device",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.668Z",
+      "lastSeen": "2025-11-05T05:44:24.073Z",
+      "confidence": 60
+    },
+    {
+      "ip": "192.168.1.215",
+      "mac": "00:A0:98:6D:9B:CF",
+      "hostname": "Unknown",
+      "manufacturer": "NetApp",
+      "os": "Linux 4.15 - 5.19, OpenWrt 21.02 (Linux 5.4)",
+      "osVersion": "4",
+      "model": "",
+      "usage": "Server",
+      "ports": [
+        22
+      ],
+      "services": [
+        {
+          "port": 22,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssh",
+          "version": "OpenSSH 10.0p2 Debian 7 (protocol 2.0)"
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.670Z",
+      "lastSeen": "2025-11-05T05:44:56.883Z",
+      "confidence": 80
+    },
+    {
+      "ip": "192.168.1.201",
+      "mac": "DC:68:EB:0D:C9:5A",
+      "hostname": "Unknown",
+      "manufacturer": "Nintendo",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.673Z",
+      "lastSeen": "2025-11-05T05:45:25.739Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.199",
+      "mac": "A0:29:42:AF:AB:CC",
+      "hostname": "Unknown",
+      "manufacturer": "Intel Corporate",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.675Z",
+      "lastSeen": "2025-11-05T05:45:25.760Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.132",
+      "mac": "48:D6:D5:74:D0:8D",
+      "hostname": "Unknown",
+      "manufacturer": "Google",
+      "os": "Google Home device",
+      "osVersion": "",
+      "model": "",
+      "usage": "Mobile Device",
+      "ports": [
+        8008,
+        8009,
+        8443,
+        9000,
+        10001
+      ],
+      "services": [
+        {
+          "port": 8008,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "http?",
+          "version": ""
+        },
+        {
+          "port": 8009,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/ajp13?",
+          "version": ""
+        },
+        {
+          "port": 8443,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/https-alt?",
+          "version": ""
+        },
+        {
+          "port": 9000,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/cslistener?",
+          "version": ""
+        },
+        {
+          "port": 10001,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "ssl/scp-config?",
+          "version": ""
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.683Z",
+      "lastSeen": "2025-11-05T05:44:08.204Z",
+      "confidence": 80
+    },
+    {
+      "ip": "192.168.1.153",
+      "mac": "C4:4F:33:AD:59:85",
+      "hostname": "Unknown",
+      "manufacturer": "Espressif",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "IoT Device",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.686Z",
+      "lastSeen": "2025-11-05T05:44:55.134Z",
+      "confidence": 60
+    },
+    {
+      "ip": "192.168.1.155",
+      "mac": "94:24:B8:0E:BB:90",
+      "hostname": "Unknown",
+      "manufacturer": "Gree Electric Appliances, OF Zhuhai",
+      "os": "lwIP 1.4.0 or earlier, lwIP 1.4.1 - 2.0.3",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.688Z",
+      "lastSeen": "2025-11-05T05:44:29.535Z",
+      "confidence": 65
+    },
+    {
+      "ip": "192.168.1.163",
+      "mac": "C0:39:37:B3:AA:64",
+      "hostname": "Unknown",
+      "manufacturer": "Gree Electric Appliances, OF Zhuhai",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.690Z",
+      "lastSeen": "2025-11-05T05:44:27.076Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.167",
+      "mac": "14:35:B7:69:BE:20",
+      "hostname": "Unknown",
+      "manufacturer": "Unknown",
+      "os": "Apple iOS 15.0 - 15.6 (Darwin 21.1.0 - 21.6.0)",
+      "osVersion": "15",
+      "model": "",
+      "usage": "Mobile Device",
+      "ports": [
+        62078
+      ],
+      "services": [
+        {
+          "port": 62078,
+          "protocol": "tcp",
+          "state": "open",
+          "service": "tcpwrapped",
+          "version": ""
+        }
+      ],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.691Z",
+      "lastSeen": "2025-11-05T05:44:57.292Z",
+      "confidence": 80
+    },
+    {
+      "ip": "192.168.1.207",
+      "mac": "94:24:B8:0E:BA:5F",
+      "hostname": "Unknown",
+      "manufacturer": "Gree Electric Appliances, OF Zhuhai",
+      "os": "lwIP 1.4.0 or earlier, lwIP 1.4.1 - 2.0.3",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.693Z",
+      "lastSeen": "2025-11-05T05:45:00.924Z",
+      "confidence": 65
+    },
+    {
+      "ip": "192.168.1.178",
+      "mac": "16:00:51:0F:F1:B3",
+      "hostname": "Unknown",
+      "manufacturer": "(Unknown: locally administered)",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.694Z",
+      "lastSeen": "2025-11-05T05:43:47.638Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.243",
+      "mac": "FE:4E:BA:C3:DA:97",
+      "hostname": "Unknown",
+      "manufacturer": "(Unknown: locally administered)",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:47.696Z",
+      "lastSeen": "2025-11-05T05:43:47.638Z",
+      "confidence": 50
+    },
+    {
+      "ip": "192.168.1.232",
+      "mac": null,
+      "hostname": "Unknown",
+      "manufacturer": "Unknown",
+      "os": "Unknown",
+      "osVersion": "",
+      "model": "",
+      "usage": "Unknown",
+      "ports": [],
+      "services": [],
+      "sources": [],
+      "firstSeen": "2025-11-05T05:43:49.769Z",
+      "lastSeen": "2025-11-05T05:45:56.112Z",
+      "confidence": 20
+    }
+  ]
+}

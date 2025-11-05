@@ -1,0 +1,42 @@
+{
+  "description": "Default configuration for nscan",
+  "defaults": {
+    "timeout": 30,
+    "format": "interactive",
+    "detectOS": true,
+    "fast": false,
+    "passive": false,
+    "watch": false
+  },
+  "ui": {
+    "colors": {
+      "primary": "cyan",
+      "success": "green",
+      "warning": "yellow",
+      "error": "red",
+      "dimmed": "gray"
+    },
+    "refreshRate": 60
+  },
+  "scanning": {
+    "maxConcurrentHosts": 5,
+    "retryAttempts": 2,
+    "hostTimeout": 30,
+    "minPacketRate": 300
+  },
+  "tools": {
+    "nmap": {
+      "required": true,
+      "timing": "T4",
+      "versionDetection": "version-light"
+    },
+    "tcpdump": {
+      "required": false,
+      "bufferSize": 65535
+    },
+    "arpScan": {
+      "required": false,
+      "fallbackToArp": true
+    }
+  }
+}
