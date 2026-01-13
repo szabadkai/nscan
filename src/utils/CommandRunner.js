@@ -148,15 +148,39 @@ export function spawnCommand(command, args = [], options = {}) {
 export function hasPrivileges() {
   if (process.platform === 'win32') {
     // On Windows, check if running with administrator elevation
-    // The 'net session' command requires admin privileges
+    // Try multiple methods to detect admin privileges
+    
+    // Method 1: Try to access a Windows system file that requires admin
     try {
-      require('child_process').execSync('net session', { 
-        stdio: 'ignore',
-        windowsHide: true 
+      const { execSync } = require('child_process');
+      // 'net session' requires admin privileges to run
+      execSync('net session 2>&1', { 
+        stdio: 'pipe',
+        windowsHide: true,
+        encoding: 'utf8'
       });
-      return true; // Command succeeded = admin privileges
+      return true;
+    } catch (error) {
+      // Check if error is due to lack of privileges (not command not found)
+      const errorOutput = error.message || error.toString();
+      // If error contains "Access is denied" or "System error 5", no admin rights
+      if (errorOutput.includes('System error 5') || 
+          errorOutput.includes('Access is denied')) {
+        return false;
+      }
+      // If command doesn't exist or other error, try fallback method
+    }
+    
+    // Method 2: Fallback - check if we can write to Windows system directory
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const testFile = path.join(process.env.WINDIR || 'C:\\Windows', 'Temp', `.nscan_priv_test_${Date.now()}`);
+      fs.writeFileSync(testFile, '');
+      fs.unlinkSync(testFile);
+      return true;
     } catch {
-      return false; // Command failed = no admin privileges
+      return false;
     }
   }
 
