@@ -231,3 +231,241 @@ export function isVPNInterface(name) {
   const vpnPatterns = /^(tun|tap|utun|ppp|ipsec|vpn|wireguard|wg)/i;
   return vpnPatterns.test(name);
 }
+
+// ============================================================================
+// IPv6 Support
+// ============================================================================
+
+/**
+ * Validate an IPv6 address
+ * Handles full, compressed, and zone ID formats (e.g., fe80::1%en0)
+ * @param {string} ip - IPv6 address to validate
+ * @returns {boolean} True if valid IPv6 address
+ */
+export function isValidIPv6(ip) {
+  if (!ip || typeof ip !== 'string') {
+    return false;
+  }
+
+  // Remove zone ID if present (e.g., fe80::1%en0 -> fe80::1)
+  const addr = ip.split('%')[0];
+
+  // Basic IPv6 regex patterns
+  const fullPattern = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+  const compressedPattern = /^(([0-9a-fA-F]{1,4}:)*)?::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/;
+  const startCompressed = /^::([0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/;
+  const endCompressed = /^([0-9a-fA-F]{1,4}:)+:$/;
+  const onlyCompressed = /^::$/;
+
+  // Check for valid patterns
+  if (
+    fullPattern.test(addr) ||
+    compressedPattern.test(addr) ||
+    startCompressed.test(addr) ||
+    endCompressed.test(addr) ||
+    onlyCompressed.test(addr)
+  ) {
+    // Additional validation: ensure no more than one ::
+    const doubleColonCount = (addr.match(/::/g) || []).length;
+    if (doubleColonCount > 1) {
+      return false;
+    }
+
+    // Ensure we have the right number of groups
+    const groups = addr.replace('::', ':').split(':').filter(Boolean);
+    if (doubleColonCount === 0 && groups.length !== 8) {
+      return false;
+    }
+    if (doubleColonCount === 1 && groups.length > 7) {
+      return false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if IPv6 address is link-local (fe80::/10)
+ * @param {string} ip - IPv6 address
+ * @returns {boolean} True if link-local
+ */
+export function isLinkLocalIPv6(ip) {
+  if (!ip) return false;
+  const addr = ip.split('%')[0].toLowerCase();
+  return addr.startsWith('fe80:') || addr.startsWith('fe80::');
+}
+
+/**
+ * Check if IPv6 address is global unicast (2000::/3)
+ * @param {string} ip - IPv6 address
+ * @returns {boolean} True if global unicast
+ */
+export function isGlobalUnicastIPv6(ip) {
+  if (!ip) return false;
+  const addr = ip.split('%')[0].toLowerCase();
+  const firstGroup = addr.split(':')[0];
+  const firstValue = parseInt(firstGroup, 16);
+  // Global unicast: first 3 bits are 001 (0x2000 - 0x3fff)
+  return firstValue >= 0x2000 && firstValue <= 0x3fff;
+}
+
+/**
+ * Check if IPv6 address is unique local (fc00::/7)
+ * Similar to RFC1918 private addresses
+ * @param {string} ip - IPv6 address
+ * @returns {boolean} True if unique local
+ */
+export function isUniqueLocalIPv6(ip) {
+  if (!ip) return false;
+  const addr = ip.split('%')[0].toLowerCase();
+  return addr.startsWith('fc') || addr.startsWith('fd');
+}
+
+/**
+ * Check if IPv6 address is multicast (ff00::/8)
+ * @param {string} ip - IPv6 address
+ * @returns {boolean} True if multicast
+ */
+export function isMulticastIPv6(ip) {
+  if (!ip) return false;
+  const addr = ip.split('%')[0].toLowerCase();
+  return addr.startsWith('ff');
+}
+
+/**
+ * Extract zone ID from IPv6 address (e.g., fe80::1%en0 -> en0)
+ * @param {string} ip - IPv6 address with possible zone ID
+ * @returns {string|null} Zone ID or null
+ */
+export function getIPv6ZoneId(ip) {
+  if (!ip || typeof ip !== 'string') return null;
+  const parts = ip.split('%');
+  return parts.length > 1 ? parts[1] : null;
+}
+
+/**
+ * Remove zone ID from IPv6 address
+ * @param {string} ip - IPv6 address with possible zone ID
+ * @returns {string} IPv6 address without zone ID
+ */
+export function stripIPv6ZoneId(ip) {
+  if (!ip || typeof ip !== 'string') return ip;
+  return ip.split('%')[0];
+}
+
+/**
+ * Get IPv6 address type description
+ * @param {string} ip - IPv6 address
+ * @returns {string} Address type description
+ */
+export function getIPv6Type(ip) {
+  if (isLinkLocalIPv6(ip)) return 'link-local';
+  if (isGlobalUnicastIPv6(ip)) return 'global';
+  if (isUniqueLocalIPv6(ip)) return 'unique-local';
+  if (isMulticastIPv6(ip)) return 'multicast';
+  if (ip && ip.toLowerCase() === '::1') return 'loopback';
+  return 'unknown';
+}
+
+/**
+ * Detect active network interfaces with IPv6 support
+ * @param {boolean} excludeInternal - Exclude loopback and internal interfaces
+ * @param {boolean} includeIPv6 - Include IPv6 addresses
+ * @returns {Array<Object>} Array of network interface information
+ */
+export function getActiveInterfacesWithIPv6(excludeInternal = true, includeIPv6 = true) {
+  const interfaces = networkInterfaces();
+  const active = [];
+  const ifaceMap = new Map(); // Group by interface name
+
+  for (const [name, addrs] of Object.entries(interfaces)) {
+    if (!addrs) continue;
+
+    for (const addr of addrs) {
+      if (excludeInternal && addr.internal) continue;
+
+      // Skip if not IPv4 or IPv6
+      if (addr.family !== 'IPv4' && addr.family !== 'IPv6') continue;
+      if (!includeIPv6 && addr.family === 'IPv6') continue;
+
+      // Skip multicast and loopback IPv6
+      if (addr.family === 'IPv6') {
+        if (isMulticastIPv6(addr.address)) continue;
+        if (addr.address === '::1') continue;
+      }
+
+      // Get or create interface entry
+      let iface = ifaceMap.get(name);
+      if (!iface) {
+        iface = {
+          name,
+          mac: addr.mac,
+          ipv4: null,
+          ipv4Cidr: null,
+          ipv6: [],
+        };
+        ifaceMap.set(name, iface);
+      }
+
+      if (addr.family === 'IPv4') {
+        iface.ipv4 = addr.address;
+        iface.ipv4Cidr = addr.cidr;
+        iface.netmask = addr.netmask;
+      } else if (addr.family === 'IPv6') {
+        iface.ipv6.push({
+          address: addr.address,
+          type: getIPv6Type(addr.address),
+          cidr: addr.cidr,
+          scopeid: addr.scopeid,
+        });
+      }
+    }
+  }
+
+  // Convert map to array and filter out interfaces without any addresses
+  for (const iface of ifaceMap.values()) {
+    if (iface.ipv4 || iface.ipv6.length > 0) {
+      active.push(iface);
+    }
+  }
+
+  return active;
+}
+
+/**
+ * Auto-detect the primary network interface with IPv6 support
+ * @returns {Object|null} Primary interface info or null
+ */
+export function detectPrimaryInterfaceWithIPv6() {
+  const interfaces = getActiveInterfacesWithIPv6(true, true);
+
+  if (interfaces.length === 0) {
+    return null;
+  }
+
+  // Prefer interfaces with common private IPv4 network ranges
+  const preferred = interfaces.find((iface) => {
+    const ip = iface.ipv4;
+    if (!ip) return false;
+    return (
+      ip.startsWith('192.168.') ||
+      ip.startsWith('10.') ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+    );
+  });
+
+  return preferred || interfaces[0];
+}
+
+/**
+ * Check if an address is IPv4 or IPv6
+ * @param {string} ip - IP address
+ * @returns {'ipv4'|'ipv6'|null} Address family or null if invalid
+ */
+export function getAddressFamily(ip) {
+  if (isValidIP(ip)) return 'ipv4';
+  if (isValidIPv6(ip)) return 'ipv6';
+  return null;
+}

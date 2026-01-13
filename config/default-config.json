@@ -6,7 +6,9 @@
     "detectOS": true,
     "fast": false,
     "passive": false,
-    "watch": false
+    "watch": false,
+    "scanLevel": "standard",
+    "ipv6": true
   },
   "ui": {
     "colors": {
@@ -24,6 +26,40 @@
     "hostTimeout": 30,
     "minPacketRate": 300
   },
+  "scanLevels": {
+    "quick": {
+      "description": "Fast discovery with minimal port scanning",
+      "timeout": 5,
+      "ports": "22,80,443",
+      "osDetection": false,
+      "versionIntensity": 0,
+      "enableMdns": true,
+      "enableSsdp": true,
+      "enableNmap": false
+    },
+    "standard": {
+      "description": "Balanced discovery with common ports and OS detection",
+      "timeout": 30,
+      "ports": "21,22,23,25,53,80,110,111,135,139,143,443,445,993,995,1723,3306,3389,5900,8080",
+      "osDetection": true,
+      "osGuess": false,
+      "versionIntensity": 2,
+      "enableMdns": true,
+      "enableSsdp": true,
+      "enableNmap": true
+    },
+    "thorough": {
+      "description": "Deep scan with extensive port coverage and OS fingerprinting",
+      "timeout": 90,
+      "ports": "top1000",
+      "osDetection": true,
+      "osGuess": true,
+      "versionIntensity": 5,
+      "enableMdns": true,
+      "enableSsdp": true,
+      "enableNmap": true
+    }
+  },
   "tools": {
     "nmap": {
       "required": true,
@@ -32,11 +68,42 @@
     },
     "tcpdump": {
       "required": false,
-      "bufferSize": 65535
+      "bufferSize": 65535,
+      "captureIPv6": true,
+      "captureDHCP": true
     },
     "arpScan": {
       "required": false,
       "fallbackToArp": true
     }
+  },
+  "discovery": {
+    "mdns": {
+      "enabled": true,
+      "timeout": 10000,
+      "serviceTypes": [
+        "_services._dns-sd._udp",
+        "_http._tcp",
+        "_ssh._tcp",
+        "_smb._tcp",
+        "_printer._tcp",
+        "_airplay._tcp",
+        "_googlecast._tcp",
+        "_homekit._tcp"
+      ]
+    },
+    "ssdp": {
+      "enabled": true,
+      "timeout": 5000
+    },
+    "ndp": {
+      "enabled": true,
+      "pingMulticast": true
+    }
+  },
+  "history": {
+    "enabled": true,
+    "maxDevices": 1000,
+    "retentionDays": 30
   }
 }

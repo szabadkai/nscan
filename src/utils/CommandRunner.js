@@ -147,8 +147,17 @@ export function spawnCommand(command, args = [], options = {}) {
  */
 export function hasPrivileges() {
   if (process.platform === 'win32') {
-    // On Windows, check if running as admin (simplified check)
-    return process.env.USERNAME === 'Administrator' || process.getuid?.() === 0;
+    // On Windows, check if running with administrator elevation
+    // The 'net session' command requires admin privileges
+    try {
+      require('child_process').execSync('net session', { 
+        stdio: 'ignore',
+        windowsHide: true 
+      });
+      return true; // Command succeeded = admin privileges
+    } catch {
+      return false; // Command failed = no admin privileges
+    }
   }
 
   // On Unix-like systems, check if running as root

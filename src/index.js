@@ -22,11 +22,14 @@ export async function startScan(options = {}, registerCleanupFn = null) {
     passive = false,
     watch = false,
     fast = false,
-    detectOS = true,
+    os: detectOS = true,
     timeout = 30,
     format = 'interactive',
     export: exportPath,
     demo = false,
+    scanLevel = 'standard',
+    ipv6 = true,
+    verbose = false,
   } = options;
 
   // Create orchestrator or demo scanner
@@ -38,6 +41,8 @@ export async function startScan(options = {}, registerCleanupFn = null) {
         detectOS,
         watch,
         timeout,
+        scanLevel,
+        ipv6,
       });
 
   // Register cleanup callback if provided
@@ -54,6 +59,8 @@ export async function startScan(options = {}, registerCleanupFn = null) {
     cidr: range,
     interface: iface,
     fast,
+    scanLevel,
+    ipv6,
   };
 
   // If format is not interactive, run headless

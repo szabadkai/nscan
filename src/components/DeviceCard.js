@@ -1,5 +1,6 @@
 /**
  * Device Card Component - Display individual device with animations
+ * Enhanced with dual-stack IPv4/IPv6 support
  */
 
 import React from 'react';
@@ -13,8 +14,9 @@ import chalk from 'chalk';
  * @param {Object} props.device - Device object
  * @param {boolean} props.analyzing - Whether device is being analyzed
  * @param {boolean} props.selected - Whether device is selected
+ * @param {boolean} props.showIPv6 - Whether to show IPv6 addresses
  */
-const DeviceCard = ({ device, analyzing = false, selected = false }) => {
+const DeviceCard = ({ device, analyzing = false, selected = false, showIPv6 = true }) => {
   /**
    * Get status icon for device
    */
@@ -56,8 +58,41 @@ const DeviceCard = ({ device, analyzing = false, selected = false }) => {
     return str.length > maxLen ? str.substring(0, maxLen - 1) + '…' : str;
   };
 
+  /**
+   * Get primary IP address for display (prefer IPv4)
+   */
+  const getPrimaryIP = () => {
+    return device.ipv4 || device.ip || 'N/A';
+  };
+
+  /**
+   * Get IPv6 summary indicator
+   */
+  const getIPv6Indicator = () => {
+    const ipv6List = device.ipv6 || [];
+    if (!ipv6List.length || !showIPv6) return null;
+
+    // Count address types
+    const hasGlobal = ipv6List.some(v6 => 
+      (typeof v6 === 'object' ? v6.type : null) === 'global' ||
+      (typeof v6 === 'string' && !v6.startsWith('fe80:'))
+    );
+    const linkLocalOnly = ipv6List.every(v6 =>
+      (typeof v6 === 'object' ? v6.type : null) === 'link-local' ||
+      (typeof v6 === 'string' && v6.startsWith('fe80:'))
+    );
+
+    if (hasGlobal) {
+      return <Text color="blue">⁶</Text>; // Has global IPv6
+    }
+    if (linkLocalOnly) {
+      return <Text dimColor>⁶</Text>; // Only link-local
+    }
+    return <Text color="gray">⁶</Text>;
+  };
+
   // Format IP with fixed width
-  const ipDisplay = (device.ip || 'N/A').padEnd(15);
+  const ipDisplay = getPrimaryIP().padEnd(15);
 
   // Build info string
   const parts = [];
@@ -68,11 +103,32 @@ const DeviceCard = ({ device, analyzing = false, selected = false }) => {
 
   const infoDisplay = parts.join(' · ');
 
+  // Discovery source indicator
+  const getSourceIndicator = () => {
+    const sources = device.discoveredVia || device.sources || [];
+    const indicators = [];
+    
+    if (sources.includes('mdns') || sources.includes('mDNS')) {
+      indicators.push(<Text key="m" color="green">m</Text>);
+    }
+    if (sources.includes('ssdp') || sources.includes('SSDP')) {
+      indicators.push(<Text key="s" color="yellow">s</Text>);
+    }
+    if (sources.includes('ndp') || sources.includes('NDP')) {
+      indicators.push(<Text key="n" color="blue">n</Text>);
+    }
+    
+    return indicators.length > 0 ? (
+      <Text dimColor>[</Text>
+    ) : null;
+  };
+
   return (
     <Box>
       {getStatusIcon()}
       <Text> </Text>
       <Text color="cyan">{ipDisplay}</Text>
+      {getIPv6Indicator()}
       <Text dimColor> </Text>
       <Text color="gray">{truncate(device.mac || '', 17)}</Text>
       {infoDisplay && (

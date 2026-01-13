@@ -43,10 +43,23 @@ const ErrorDisplay = ({ error, missing = [] }) => {
           <Text bold color="yellow">
             💡 Quick Fix:
           </Text>
-          <Text color="green" marginTop={1}>
-            Run with sudo:
-          </Text>
-          <Text color="cyan">  sudo nscan</Text>
+          {process.platform === 'win32' ? (
+            <>
+              <Text color="green" marginTop={1}>
+                Run as Administrator:
+              </Text>
+              <Text color="cyan">  1. Right-click CMD/PowerShell</Text>
+              <Text color="cyan">  2. Run as administrator</Text>
+              <Text color="cyan">  3. Run: nscan</Text>
+            </>
+          ) : (
+            <>
+              <Text color="green" marginTop={1}>
+                Run with sudo:
+              </Text>
+              <Text color="cyan">  sudo nscan</Text>
+            </>
+          )}
         </Box>
       )}
 

@@ -1,12 +1,14 @@
 /**
  * Data Aggregator - Merges data from multiple sources into unified Device objects
  * Handles data enrichment with manufacturer, OS, and usage information
+ * Uses MAC-based keying for proper dual-stack (IPv4/IPv6) device correlation
  */
 
 import Device from '../models/Device.js';
 import { manufacturerResolver } from './ManufacturerResolver.js';
 import { osDetector } from './OsDetector.js';
 import { usageInferrer } from './UsageInferrer.js';
+import { normalizeMac } from '../utils/NetworkUtils.js';
 import eventBus, { Events } from '../utils/EventBus.js';
 
 /**
@@ -14,8 +16,12 @@ import eventBus, { Events } from '../utils/EventBus.js';
  */
 export default class DataAggregator {
   constructor() {
-    // Map of devices by ID (IP or MAC)
+    // Primary device map keyed by MAC address
     this.devices = new Map();
+    
+    // Secondary indexes for fast lookup
+    this.ipv4Index = new Map(); // IPv4 -> MAC
+    this.ipv6Index = new Map(); // IPv6 -> MAC
 
     // Subscribe to device events
     this._setupEventListeners();
@@ -36,30 +42,127 @@ export default class DataAggregator {
   }
 
   /**
+   * Generate a device key - prefers MAC for proper dual-stack correlation
+   * @param {Object} deviceData - Device data
+   * @returns {string|null} Device key
+   */
+  _getDeviceKey(deviceData) {
+    // Prefer MAC address for dual-stack correlation
+    if (deviceData.mac) {
+      return `mac:${normalizeMac(deviceData.mac)}`;
+    }
+    
+    // Fall back to IPv4
+    if (deviceData.ipv4 || deviceData.ip) {
+      return `ipv4:${deviceData.ipv4 || deviceData.ip}`;
+    }
+    
+    // Fall back to IPv6
+    if (deviceData.ipv6?.length > 0) {
+      const addr = typeof deviceData.ipv6[0] === 'string' 
+        ? deviceData.ipv6[0] 
+        : deviceData.ipv6[0].address;
+      return `ipv6:${addr}`;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Find existing device by any identifier
+   * @param {Object} deviceData - Device data
+   * @returns {Device|null} Existing device or null
+   */
+  _findExistingDevice(deviceData) {
+    // Check by MAC first (most reliable)
+    if (deviceData.mac) {
+      const key = `mac:${normalizeMac(deviceData.mac)}`;
+      if (this.devices.has(key)) {
+        return { device: this.devices.get(key), key };
+      }
+    }
+    
+    // Check by IPv4 index
+    const ipv4 = deviceData.ipv4 || deviceData.ip;
+    if (ipv4 && this.ipv4Index.has(ipv4)) {
+      const key = this.ipv4Index.get(ipv4);
+      if (this.devices.has(key)) {
+        return { device: this.devices.get(key), key };
+      }
+    }
+    
+    // Check by IPv6 index
+    if (deviceData.ipv6?.length > 0) {
+      for (const v6 of deviceData.ipv6) {
+        const addr = typeof v6 === 'string' ? v6 : v6.address;
+        if (this.ipv6Index.has(addr)) {
+          const key = this.ipv6Index.get(addr);
+          if (this.devices.has(key)) {
+            return { device: this.devices.get(key), key };
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Update indexes for a device
+   * @param {string} key - Device key
+   * @param {Device} device - Device object
+   */
+  _updateIndexes(key, device) {
+    // Index IPv4
+    if (device.ipv4 || device.ip) {
+      this.ipv4Index.set(device.ipv4 || device.ip, key);
+    }
+    
+    // Index all IPv6 addresses
+    for (const v6 of device.ipv6 || []) {
+      const addr = typeof v6 === 'string' ? v6 : v6.address;
+      this.ipv6Index.set(addr, key);
+    }
+  }
+
+  /**
    * Add a new device or update existing device
    * @param {Object} deviceData - Raw device data
    * @returns {Device} Device object
    */
   addDevice(deviceData) {
-    // Get device ID (prefer IP over MAC)
-    const id = deviceData.ip || deviceData.mac;
+    // Try to find existing device first
+    const existing = this._findExistingDevice(deviceData);
 
-    if (!id) {
+    if (existing) {
+      // Update existing device
+      existing.device.merge(deviceData);
+      this._updateIndexes(existing.key, existing.device);
+      this.enrichDevice(existing.device);
+      return existing.device;
+    }
+
+    // Get key for new device
+    const key = this._getDeviceKey(deviceData);
+
+    if (!key) {
       console.warn('Device without IP or MAC:', deviceData);
       return null;
     }
 
-    let device;
-
-    if (this.devices.has(id)) {
-      // Update existing device
-      device = this.devices.get(id);
+    // Check if key exists (shouldn't happen, but safety check)
+    if (this.devices.has(key)) {
+      const device = this.devices.get(key);
       device.merge(deviceData);
-    } else {
-      // Create new device
-      device = new Device(deviceData);
-      this.devices.set(id, device);
+      this._updateIndexes(key, device);
+      this.enrichDevice(device);
+      return device;
     }
+
+    // Create new device
+    const device = new Device(deviceData);
+    this.devices.set(key, device);
+    this._updateIndexes(key, device);
 
     // Enrich device data
     this.enrichDevice(device);
@@ -73,17 +176,13 @@ export default class DataAggregator {
    * @returns {Device|null} Updated device or null
    */
   updateDevice(deviceData) {
-    const id = deviceData.ip || deviceData.mac;
+    const existing = this._findExistingDevice(deviceData);
 
-    if (!id) {
-      return null;
-    }
-
-    if (this.devices.has(id)) {
-      const device = this.devices.get(id);
-      device.merge(deviceData);
-      this.enrichDevice(device);
-      return device;
+    if (existing) {
+      existing.device.merge(deviceData);
+      this._updateIndexes(existing.key, existing.device);
+      this.enrichDevice(existing.device);
+      return existing.device;
     }
 
     // Device doesn't exist, add it
@@ -145,23 +244,40 @@ export default class DataAggregator {
   }
 
   /**
-   * Get device by ID (IP or MAC)
-   * @param {string} id - Device ID
+   * Get device by key (MAC, IPv4, or IPv6 based key)
+   * @param {string} key - Device key
    * @returns {Device|null} Device or null
    */
-  getDevice(id) {
-    return this.devices.get(id) || null;
+  getDevice(key) {
+    return this.devices.get(key) || null;
   }
 
   /**
-   * Get device by IP address
+   * Get device by IP address (IPv4 or IPv6)
    * @param {string} ip - IP address
    * @returns {Device|null} Device or null
    */
   getDeviceByIP(ip) {
+    // Check IPv4 index
+    if (this.ipv4Index.has(ip)) {
+      const key = this.ipv4Index.get(ip);
+      return this.devices.get(key) || null;
+    }
+    
+    // Check IPv6 index
+    if (this.ipv6Index.has(ip)) {
+      const key = this.ipv6Index.get(ip);
+      return this.devices.get(key) || null;
+    }
+    
+    // Fall back to linear search
     for (const device of this.devices.values()) {
-      if (device.ip === ip) {
+      if (device.ip === ip || device.ipv4 === ip) {
         return device;
+      }
+      for (const v6 of device.ipv6 || []) {
+        const addr = typeof v6 === 'string' ? v6 : v6.address;
+        if (addr === ip) return device;
       }
     }
     return null;
@@ -173,12 +289,9 @@ export default class DataAggregator {
    * @returns {Device|null} Device or null
    */
   getDeviceByMAC(mac) {
-    for (const device of this.devices.values()) {
-      if (device.mac === mac) {
-        return device;
-      }
-    }
-    return null;
+    const normalized = normalizeMac(mac);
+    const key = `mac:${normalized}`;
+    return this.devices.get(key) || null;
   }
 
   /**
@@ -214,11 +327,40 @@ export default class DataAggregator {
 
   /**
    * Remove a device
-   * @param {string} id - Device ID
+   * @param {string} key - Device key or MAC address
    * @returns {boolean} True if device was removed
    */
-  removeDevice(id) {
-    return this.devices.delete(id);
+  removeDevice(key) {
+    // Try direct key first
+    if (this.devices.has(key)) {
+      const device = this.devices.get(key);
+      this._removeFromIndexes(device);
+      return this.devices.delete(key);
+    }
+    
+    // Try as MAC address
+    const macKey = `mac:${normalizeMac(key)}`;
+    if (this.devices.has(macKey)) {
+      const device = this.devices.get(macKey);
+      this._removeFromIndexes(device);
+      return this.devices.delete(macKey);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Remove device from indexes
+   * @param {Device} device - Device to remove from indexes
+   */
+  _removeFromIndexes(device) {
+    if (device.ipv4 || device.ip) {
+      this.ipv4Index.delete(device.ipv4 || device.ip);
+    }
+    for (const v6 of device.ipv6 || []) {
+      const addr = typeof v6 === 'string' ? v6 : v6.address;
+      this.ipv6Index.delete(addr);
+    }
   }
 
   /**
@@ -226,6 +368,8 @@ export default class DataAggregator {
    */
   clear() {
     this.devices.clear();
+    this.ipv4Index.clear();
+    this.ipv6Index.clear();
   }
 
   /**

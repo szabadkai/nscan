@@ -107,13 +107,18 @@ export default class ArpScanner extends BaseScanner {
       );
 
       if (match) {
-        const [, ip, mac, vendor] = match;
+        const ip = match[1];
+        const mac = match[2];
+        const vendor = match[3];
+        
         devices.push({
           ip,
+          ipv4: ip,
           mac: normalizeMac(mac),
-          manufacturer: vendor.trim() || undefined,
+          manufacturer: vendor?.trim() || undefined,
           lastSeen: new Date().toISOString(),
           source: 'arp-scan',
+          discoveredVia: ['arp-scan'],
         });
       }
     }
@@ -132,7 +137,8 @@ export default class ArpScanner extends BaseScanner {
     const lines = output.split('\n');
 
     for (const line of lines) {
-      let ip, mac;
+      let ip = null;
+      let mac = null;
 
       if (process.platform === 'win32') {
         // Windows format: 192.168.1.1      00-11-22-33-44-55     dynamic
@@ -140,15 +146,18 @@ export default class ArpScanner extends BaseScanner {
           /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+([\da-fA-F-]{17})/
         );
         if (match) {
-          [, ip, mac] = match;
+          ip = match[1];
+          mac = match[2];
         }
       } else {
-        // Unix format: hostname (192.168.1.1) at 00:11:22:33:44:55 [ether] on en0
+        // Unix/macOS format: hostname (192.168.1.1) at 00:11:22:33:44:55 [ether] on en0
+        // macOS can use abbreviated format: 0:0:5e:0:1:f (11-17 chars)
         const match = line.match(
-          /\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)\s+at\s+([\da-fA-F:]{17})/
+          /\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)\s+at\s+([\da-fA-F:]{11,17})\s/
         );
         if (match) {
-          [, ip, mac] = match;
+          ip = match[1];
+          mac = this._expandMac(match[2]);
         }
       }
 
@@ -160,13 +169,29 @@ export default class ArpScanner extends BaseScanner {
 
         devices.push({
           ip,
+          ipv4: ip,
           mac: normalizeMac(mac),
           lastSeen: new Date().toISOString(),
           source: 'arp',
+          discoveredVia: ['arp'],
         });
       }
     }
 
     return devices;
+  }
+
+  /**
+   * Expand abbreviated MAC address to full format
+   * e.g., "0:0:5e:0:1:f" -> "00:00:5e:00:01:0f"
+   * @param {string} mac - MAC address (possibly abbreviated)
+   * @returns {string} Full MAC address
+   */
+  _expandMac(mac) {
+    if (!mac) return mac;
+    return mac
+      .split(':')
+      .map(part => part.padStart(2, '0'))
+      .join(':');
   }
 }
