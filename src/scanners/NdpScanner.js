@@ -77,6 +77,9 @@ export default class NdpScanner extends BaseScanner {
       } else if (this.platform === 'linux') {
         const newDevices = await this._scanWithIpNeigh(config);
         this._mergeDevices(devices, newDevices);
+      } else if (this.platform === 'win32') {
+        const newDevices = await this._scanWithNetsh(config);
+        this._mergeDevices(devices, newDevices);
       }
     } catch (error) {
       console.warn('NDP scan warning:', error.message);
@@ -108,11 +111,17 @@ export default class NdpScanner extends BaseScanner {
    */
   async _pingMulticast(iface) {
     try {
-      const pingCmd = this.platform === 'darwin' 
-        ? `ping6 -c 2 -I ${iface || 'en0'} ff02::1`
-        : this.platform === 'linux'
-        ? `ping -6 -c 2 -I ${iface || 'eth0'} ff02::1`
-        : null;
+      let pingCmd;
+      
+      if (this.platform === 'darwin') {
+        pingCmd = `ping6 -c 2 -I ${iface || 'en0'} ff02::1`;
+      } else if (this.platform === 'linux') {
+        pingCmd = `ping -6 -c 2 -I ${iface || 'eth0'} ff02::1`;
+      } else if (this.platform === 'win32') {
+        // Windows: Use ping with -6 flag for IPv6
+        // Note: Interface binding on Windows requires different syntax
+        pingCmd = `ping -6 -n 2 ff02::1`;
+      }
 
       if (pingCmd) {
         await executeCommand(pingCmd, { timeout: 5000 }).catch(() => {});

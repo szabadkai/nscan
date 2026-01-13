@@ -2,7 +2,9 @@
  * Safe command execution utility with dependency checking
  */
 
-import { spawn, exec } from 'child_process';
+import { spawn, exec, execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { promisify } from 'util';
 
 const execPromise = promisify(exec);
@@ -150,11 +152,9 @@ export function hasPrivileges() {
     // On Windows, check if running with administrator elevation
     // Try multiple methods to detect admin privileges
     
-    // Method 1: Try to access a Windows system file that requires admin
+    // Method 1: 'net session' requires admin privileges to run
     try {
-      const { execSync } = require('child_process');
-      // 'net session' requires admin privileges to run
-      execSync('net session 2>&1', { 
+      execSync('net session', { 
         stdio: 'pipe',
         windowsHide: true,
         encoding: 'utf8'
@@ -162,10 +162,11 @@ export function hasPrivileges() {
       return true;
     } catch (error) {
       // Check if error is due to lack of privileges (not command not found)
-      const errorOutput = error.message || error.toString();
+      const errorOutput = error.stderr || error.stdout || error.message || '';
       // If error contains "Access is denied" or "System error 5", no admin rights
       if (errorOutput.includes('System error 5') || 
-          errorOutput.includes('Access is denied')) {
+          errorOutput.includes('Access is denied') ||
+          error.status === 2) {
         return false;
       }
       // If command doesn't exist or other error, try fallback method
@@ -173,8 +174,6 @@ export function hasPrivileges() {
     
     // Method 2: Fallback - check if we can write to Windows system directory
     try {
-      const fs = require('fs');
-      const path = require('path');
       const testFile = path.join(process.env.WINDIR || 'C:\\Windows', 'Temp', `.nscan_priv_test_${Date.now()}`);
       fs.writeFileSync(testFile, '');
       fs.unlinkSync(testFile);
@@ -189,22 +188,32 @@ export function hasPrivileges() {
 }
 
 /**
- * Kill a process and all its children
- * @param {ChildProcess} process - Process to kill
- * @param {string} signal - Signal to send (default: SIGTERM)
+ * Kill a process and all its children (cross-platform)
+ * @param {ChildProcess} proc - Process to kill
+ * @param {string} signal - Signal to send (default: SIGTERM) - ignored on Windows
  */
-export function killProcess(process, signal = 'SIGTERM') {
-  if (!process || process.killed) {
+export function killProcess(proc, signal = 'SIGTERM') {
+  if (!proc || proc.killed) {
     return;
   }
 
   try {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', process.pid, '/f', '/t']);
+      // On Windows, use taskkill to force-kill the process tree
+      spawn('taskkill', ['/pid', proc.pid.toString(), '/f', '/t'], {
+        stdio: 'ignore',
+        windowsHide: true
+      });
     } else {
-      process.kill(signal);
+      // On Unix, send the signal
+      proc.kill(signal);
     }
   } catch (error) {
-    console.error(`Failed to kill process: ${error.message}`);
+    // Fallback: try basic kill
+    try {
+      proc.kill();
+    } catch {
+      // Process may have already exited
+    }
   }
 }

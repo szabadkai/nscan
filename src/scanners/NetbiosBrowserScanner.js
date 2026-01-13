@@ -35,8 +35,10 @@ export default class NetbiosBrowserScanner extends BaseScanner {
       } else if (platform() === 'linux') {
         // Linux: Use nmblookup if available
         await this._scanWithNmblookup(timeout);
+      } else if (platform() === 'win32') {
+        // Windows: Use nbtstat to discover NetBIOS names
+        await this._scanWithNbtstat(timeout);
       }
-      // Windows: Skip - this scanner is for discovering Windows from other OSes
     } catch (error) {
       console.warn('NetBIOS browsing failed:', error.message);
     }
@@ -179,6 +181,100 @@ export default class NetbiosBrowserScanner extends BaseScanner {
   }
 
   /**
+   * Scan using Windows nbtstat
+   * Uses the local NetBIOS name cache and can resolve specific IPs
+   * @param {number} timeout - Timeout in ms
+   */
+  async _scanWithNbtstat(timeout) {
+    try {
+      // Method 1: Get cached NetBIOS names from local cache
+      // nbtstat -c shows the remote name cache
+      const cacheOutput = await executeCommand('nbtstat -c', { 
+        timeout: Math.min(timeout / 2, 5000) 
+      }).catch(() => '');
+      
+      if (cacheOutput) {
+        this._parseNbtstatCache(cacheOutput);
+      }
+
+      // Method 2: Get local network connections
+      // nbtstat -n shows local NetBIOS names (useful for the local machine)
+      const localOutput = await executeCommand('nbtstat -n', { 
+        timeout: Math.min(timeout / 2, 5000) 
+      }).catch(() => '');
+      
+      if (localOutput) {
+        this._parseNbtstatLocal(localOutput);
+      }
+
+      // Method 3: Try to get names from recent network activity
+      // The ARP table IPs will be resolved individually via resolveIP
+    } catch (error) {
+      console.warn('nbtstat scan failed:', error.message);
+    }
+  }
+
+  /**
+   * Parse nbtstat -c (cache) output
+   * @param {string} output - Command output
+   */
+  _parseNbtstatCache(output) {
+    const lines = output.split('\n');
+    let currentIP = null;
+    
+    for (const line of lines) {
+      // Look for IP address headers
+      // Format varies: "192.168.1.100:" or includes the name
+      const ipMatch = line.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+      
+      // Look for NetBIOS name entries
+      // Format: "    COMPUTERNAME      <00>  UNIQUE      Registered"
+      const nameMatch = line.match(/^\s+([A-Z0-9_-]+)\s+<([0-9a-fA-F]+)>\s+(UNIQUE|GROUP)/i);
+      
+      if (ipMatch) {
+        currentIP = ipMatch[1];
+      }
+      
+      if (nameMatch && currentIP) {
+        const [, name, suffix, type] = nameMatch;
+        
+        // <00> suffix is the workstation/computer name
+        if (suffix === '00' && type.toUpperCase() === 'UNIQUE') {
+          const device = {
+            ip: currentIP,
+            ipv4: currentIP,
+            hostname: name.trim(),
+            os: 'Windows',
+            discoveredVia: ['netbios-browser'],
+            source: 'netbios-browser',
+            lastSeen: Date.now(),
+          };
+          this.devices.set(currentIP, device);
+        }
+      }
+    }
+  }
+
+  /**
+   * Parse nbtstat -n (local names) output
+   * @param {string} output - Command output
+   */
+  _parseNbtstatLocal(output) {
+    // This captures the local machine's NetBIOS name
+    // which can be useful for network identification
+    const lines = output.split('\n');
+    
+    for (const line of lines) {
+      const nameMatch = line.match(/^\s+([A-Z0-9_-]+)\s+<00>\s+UNIQUE/i);
+      if (nameMatch) {
+        // This is the local computer name - store it if needed
+        // Could be useful for self-identification
+        break;
+      }
+    }
+  }
+
+  /**
    * Resolve a specific IP address to its NetBIOS name
    * This can be called for IPs discovered by other scanners
    * @param {string} ip - IP address to resolve
@@ -208,6 +304,23 @@ export default class NetbiosBrowserScanner extends BaseScanner {
         const lines = output.split('\n');
         for (const line of lines) {
           const match = line.match(/^\s+(\S+)\s+<00>\s+-\s+[^<]*<ACTIVE>/);
+          if (match) {
+            return {
+              hostname: match[1].trim(),
+              os: 'Windows',
+              source: 'netbios-browser',
+            };
+          }
+        }
+      } else if (platform() === 'win32') {
+        // Windows: Use nbtstat -A to query remote NetBIOS name table
+        const output = await executeCommand(`nbtstat -A ${ip}`, { timeout });
+        
+        // Parse nbtstat output for computer name
+        const lines = output.split('\n');
+        for (const line of lines) {
+          // Look for <00> UNIQUE entries (computer name)
+          const match = line.match(/^\s+([A-Z0-9_-]+)\s+<00>\s+UNIQUE/i);
           if (match) {
             return {
               hostname: match[1].trim(),

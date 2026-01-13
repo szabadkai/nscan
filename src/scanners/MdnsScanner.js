@@ -4,9 +4,10 @@
  */
 
 import BaseScanner from './BaseScanner.js';
-import { executeCommand, commandExists, spawnCommand } from '../utils/CommandRunner.js';
+import { executeCommand, commandExists, spawnCommand, killProcess } from '../utils/CommandRunner.js';
 import { normalizeMac, isValidIP, isValidIPv6, getIPv6Type } from '../utils/NetworkUtils.js';
 import eventBus, { Events } from '../utils/EventBus.js';
+import dgram from 'dgram';
 
 /**
  * Common mDNS service types to browse
@@ -77,13 +78,13 @@ export default class MdnsScanner extends BaseScanner {
       } else if (this.platform === 'linux') {
         await this._scanWithAvahi(serviceTypes, timeout);
       } else if (this.platform === 'win32') {
-        // Windows doesn't have built-in mDNS tools
-        // Could use dns-sd if Bonjour Print Services is installed
+        // Windows: Try dns-sd if Bonjour is installed, otherwise use pure JS
         const hasDnsSd = await commandExists('dns-sd');
         if (hasDnsSd) {
           await this._scanWithDnsSd(serviceTypes, timeout);
         } else {
-          console.warn('mDNS scanning requires Bonjour Print Services on Windows');
+          // Use pure JavaScript mDNS implementation
+          await this._scanWithPureJS(serviceTypes, timeout);
         }
       }
 
@@ -102,9 +103,7 @@ export default class MdnsScanner extends BaseScanner {
    */
   async stop() {
     for (const proc of this.processes) {
-      if (proc && !proc.killed) {
-        proc.kill('SIGTERM');
-      }
+      killProcess(proc);
     }
     this.processes = [];
 
@@ -151,7 +150,7 @@ export default class MdnsScanner extends BaseScanner {
         this.processes.push(spawned.process);
 
         const timer = setTimeout(() => {
-          spawned.process.kill('SIGTERM');
+          killProcess(spawned.process);
           resolve(services);
         }, timeout);
 
@@ -197,7 +196,7 @@ export default class MdnsScanner extends BaseScanner {
         this.processes.push(spawned.process);
 
         const timer = setTimeout(() => {
-          spawned.process.kill('SIGTERM');
+          killProcess(spawned.process);
           resolve();
         }, timeout);
 
@@ -316,6 +315,232 @@ export default class MdnsScanner extends BaseScanner {
         this.discoveredServices.set(instanceName, existing);
       }
     }
+  }
+
+  /**
+   * Scan using pure JavaScript mDNS implementation (fallback for Windows/cross-platform)
+   * Uses UDP multicast to query for mDNS services
+   * @param {Array<string>} serviceTypes - Service types to browse
+   * @param {number} timeout - Timeout in ms
+   */
+  async _scanWithPureJS(serviceTypes, timeout) {
+    const MDNS_MULTICAST_ADDR = '224.0.0.251';
+    const MDNS_PORT = 5353;
+    
+    return new Promise((resolve) => {
+      const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      this._mdnsSocket = socket;
+      
+      const cleanup = () => {
+        try {
+          socket.close();
+        } catch { /* ignore */ }
+        this._mdnsSocket = null;
+        resolve();
+      };
+      
+      // Set timeout
+      const timer = setTimeout(cleanup, timeout);
+      
+      socket.on('error', (err) => {
+        // Silently handle errors - mDNS may not work in all environments
+        clearTimeout(timer);
+        cleanup();
+      });
+      
+      socket.on('message', (msg, rinfo) => {
+        try {
+          this._parseMdnsResponse(msg, rinfo);
+        } catch {
+          // Ignore parse errors
+        }
+      });
+      
+      socket.on('listening', () => {
+        try {
+          socket.addMembership(MDNS_MULTICAST_ADDR);
+          socket.setMulticastTTL(255);
+          
+          // Send queries for common service types
+          const queryTypes = ['_services._dns-sd._udp', '_http._tcp', '_https._tcp', 
+                             '_printer._tcp', '_ipp._tcp', '_smb._tcp', '_ssh._tcp',
+                             '_googlecast._tcp', '_airplay._tcp', '_homekit._tcp'];
+          
+          for (const serviceType of queryTypes.slice(0, 5)) {
+            const query = this._buildMdnsQuery(serviceType + '.local');
+            socket.send(query, 0, query.length, MDNS_PORT, MDNS_MULTICAST_ADDR);
+          }
+        } catch {
+          // Membership may fail in some environments
+        }
+      });
+      
+      try {
+        socket.bind(MDNS_PORT, () => {
+          socket.setBroadcast(true);
+        });
+      } catch {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Build a simple mDNS query packet
+   * @param {string} name - Service name to query
+   * @returns {Buffer} mDNS query packet
+   */
+  _buildMdnsQuery(name) {
+    const parts = name.split('.');
+    const labels = [];
+    
+    for (const part of parts) {
+      if (part) {
+        labels.push(Buffer.from([part.length]), Buffer.from(part));
+      }
+    }
+    labels.push(Buffer.from([0])); // Null terminator
+    
+    const nameBuffer = Buffer.concat(labels);
+    
+    // Build DNS header (12 bytes) + question
+    const header = Buffer.alloc(12);
+    header.writeUInt16BE(Math.floor(Math.random() * 65535), 0); // Transaction ID
+    header.writeUInt16BE(0x0000, 2); // Flags: standard query
+    header.writeUInt16BE(1, 4); // Questions: 1
+    header.writeUInt16BE(0, 6); // Answer RRs: 0
+    header.writeUInt16BE(0, 8); // Authority RRs: 0
+    header.writeUInt16BE(0, 10); // Additional RRs: 0
+    
+    // Question: type PTR (12), class IN (1)
+    const question = Buffer.alloc(4);
+    question.writeUInt16BE(12, 0); // Type: PTR
+    question.writeUInt16BE(1, 2);  // Class: IN
+    
+    return Buffer.concat([header, nameBuffer, question]);
+  }
+
+  /**
+   * Parse mDNS response packet
+   * @param {Buffer} msg - mDNS response message
+   * @param {Object} rinfo - Remote info (address, port)
+   */
+  _parseMdnsResponse(msg, rinfo) {
+    if (msg.length < 12) return;
+    
+    // Extract source IP
+    const sourceIP = rinfo.address;
+    if (!isValidIP(sourceIP)) return;
+    
+    // Parse DNS header
+    const flags = msg.readUInt16BE(2);
+    const isResponse = (flags & 0x8000) !== 0;
+    
+    if (!isResponse) return; // Only process responses
+    
+    const answerCount = msg.readUInt16BE(6);
+    if (answerCount === 0) return;
+    
+    // Try to extract hostname from response
+    let offset = 12;
+    let hostname = null;
+    
+    // Skip question section
+    const questionCount = msg.readUInt16BE(4);
+    for (let i = 0; i < questionCount && offset < msg.length; i++) {
+      while (offset < msg.length && msg[offset] !== 0) {
+        if ((msg[offset] & 0xc0) === 0xc0) {
+          offset += 2;
+          break;
+        }
+        offset += msg[offset] + 1;
+      }
+      offset += 5; // null byte + type (2) + class (2)
+    }
+    
+    // Parse answer section for names
+    for (let i = 0; i < answerCount && offset < msg.length - 10; i++) {
+      try {
+        const nameResult = this._parseDnsName(msg, offset);
+        if (nameResult.name && nameResult.name.endsWith('.local')) {
+          hostname = nameResult.name.replace('.local', '');
+        }
+        offset = nameResult.offset;
+        
+        if (offset + 10 > msg.length) break;
+        
+        const type = msg.readUInt16BE(offset);
+        offset += 8; // type (2) + class (2) + ttl (4)
+        const rdLength = msg.readUInt16BE(offset);
+        offset += 2 + rdLength;
+        
+        // Type A (1) = IPv4 address
+        if (type === 1 && rdLength === 4 && offset - rdLength >= 0) {
+          const ipOffset = offset - rdLength;
+          // Already have IP from rinfo
+        }
+      } catch {
+        break;
+      }
+    }
+    
+    // Add discovered service
+    if (sourceIP) {
+      const key = hostname || sourceIP;
+      const existing = this.discoveredServices.get(key) || {
+        name: hostname || sourceIP,
+        hostname: hostname,
+        services: [],
+      };
+      
+      existing.ipv4 = sourceIP;
+      if (hostname) existing.hostname = hostname;
+      
+      this.discoveredServices.set(key, existing);
+    }
+  }
+
+  /**
+   * Parse a DNS name from a message buffer
+   * @param {Buffer} msg - Message buffer
+   * @param {number} offset - Starting offset
+   * @returns {Object} Parsed name and new offset
+   */
+  _parseDnsName(msg, offset) {
+    const parts = [];
+    let jumped = false;
+    let jumpOffset = 0;
+    
+    while (offset < msg.length) {
+      const len = msg[offset];
+      
+      if (len === 0) {
+        offset++;
+        break;
+      }
+      
+      if ((len & 0xc0) === 0xc0) {
+        // Pointer
+        if (!jumped) {
+          jumpOffset = offset + 2;
+        }
+        offset = ((len & 0x3f) << 8) | msg[offset + 1];
+        jumped = true;
+        continue;
+      }
+      
+      offset++;
+      if (offset + len > msg.length) break;
+      
+      parts.push(msg.slice(offset, offset + len).toString('utf8'));
+      offset += len;
+    }
+    
+    return {
+      name: parts.join('.'),
+      offset: jumped ? jumpOffset : offset,
+    };
   }
 
   /**

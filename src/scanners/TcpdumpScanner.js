@@ -5,7 +5,7 @@
  */
 
 import BaseScanner from './BaseScanner.js';
-import { spawnCommand } from '../utils/CommandRunner.js';
+import { spawnCommand, killProcess } from '../utils/CommandRunner.js';
 import { normalizeMac, isValidIPv6, getIPv6Type } from '../utils/NetworkUtils.js';
 import eventBus, { Events } from '../utils/EventBus.js';
 
@@ -37,6 +37,15 @@ export default class TcpdumpScanner extends BaseScanner {
    */
   async start(config) {
     this._onStart();
+
+    // Check if running on Windows - tcpdump is not available
+    if (process.platform === 'win32') {
+      // Gracefully skip on Windows with informative message
+      console.warn('TcpdumpScanner: Passive capture not available on Windows (requires WinDump/Npcap)');
+      console.warn('TcpdumpScanner: DHCP hostname discovery will be limited. Other scanners will continue.');
+      this._onComplete();
+      return;
+    }
 
     try {
       const { 
@@ -136,10 +145,9 @@ export default class TcpdumpScanner extends BaseScanner {
    * Stop tcpdump capture
    */
   async stop() {
-    if (this.process && !this.process.killed) {
-      this.process.kill('SIGTERM');
-      eventBus.emit(Events.TCPDUMP_STOP, { scanner: this.name });
-    }
+    killProcess(this.process);
+    this.process = null;
+    eventBus.emit(Events.TCPDUMP_STOP, { scanner: this.name });
 
     if (this.running) {
       this._onComplete();

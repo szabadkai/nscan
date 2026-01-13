@@ -4,7 +4,7 @@
  */
 
 import BaseScanner from './BaseScanner.js';
-import { spawnCommand, executeCommand } from '../utils/CommandRunner.js';
+import { spawnCommand, executeCommand, killProcess } from '../utils/CommandRunner.js';
 import { normalizeMac, isValidIPv6, getIPv6Type } from '../utils/NetworkUtils.js';
 
 /**
@@ -134,10 +134,8 @@ export default class NmapScanner extends BaseScanner {
    * Stop all nmap processes
    */
   async stop() {
-    for (const process of this.processes) {
-      if (!process.killed) {
-        process.kill('SIGTERM');
-      }
+    for (const proc of this.processes) {
+      killProcess(proc);
     }
 
     this.processes = [];
