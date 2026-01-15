@@ -94,9 +94,11 @@ const DeviceCard = ({ device, analyzing = false, selected = false, showIPv6 = tr
   // Format IP with fixed width
   const ipDisplay = getPrimaryIP().padEnd(15);
 
-  // Build info string
+  // Hostname display - make it prominent
+  const hostnameDisplay = device.hostname ? truncate(device.hostname, 25) : null;
+
+  // Build secondary info string (everything except hostname)
   const parts = [];
-  if (device.hostname) parts.push(truncate(device.hostname, 20));
   if (device.manufacturer) parts.push(truncate(device.manufacturer, 15));
   if (device.usage) parts.push(device.usage);
   if (device.os) parts.push(device.os);
@@ -127,7 +129,19 @@ const DeviceCard = ({ device, analyzing = false, selected = false, showIPv6 = tr
     <Box>
       {getStatusIcon()}
       <Text> </Text>
-      <Text color="cyan">{ipDisplay}</Text>
+      {hostnameDisplay ? (
+        <>
+          <Text bold color="white">{hostnameDisplay.padEnd(25)}</Text>
+          <Text dimColor> </Text>
+          <Text color="yellow">{ipDisplay}</Text>
+        </>
+      ) : (
+        <>
+          <Text dimColor>{"(unknown)".padEnd(25)}</Text>
+          <Text dimColor> </Text>
+          <Text color="cyan">{ipDisplay}</Text>
+        </>
+      )}
       {getIPv6Indicator()}
       <Text dimColor> </Text>
       <Text color="gray">{truncate(device.mac || '', 17)}</Text>

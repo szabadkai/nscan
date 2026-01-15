@@ -27,7 +27,17 @@ const DeviceList = ({ devices = [], selectedIndex = -1 }) => {
         <Text bold color="cyan">
           Discovered Devices ({devices.length})
         </Text>
-        <Text dimColor> ─────────────────────────────────────────────────────────</Text>
+      </Box>
+      <Box>
+        <Text dimColor>  </Text>
+        <Text dimColor>{"Hostname".padEnd(25)}</Text>
+        <Text dimColor> </Text>
+        <Text dimColor>{"IP Address".padEnd(15)}</Text>
+        <Text dimColor>  </Text>
+        <Text dimColor>MAC Address</Text>
+      </Box>
+      <Box>
+        <Text dimColor>  ─────────────────────────────────────────────────────────────────────</Text>
       </Box>
 
       <Box flexDirection="column">

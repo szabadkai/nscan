@@ -42,10 +42,11 @@ export function formatJSON(devices, metadata = {}) {
  * @returns {string} CSV string
  */
 export function formatCSV(devices) {
+  // Hostname first for easy recognition when opening in spreadsheet
   const headers = [
+    'Hostname',
     'IP',
     'MAC',
-    'Hostname',
     'Manufacturer',
     'OS',
     'OS Version',
@@ -59,9 +60,9 @@ export function formatCSV(devices) {
   ];
 
   const rows = devices.map((device) => [
+    escapeCsvField(device.hostname || '(unknown)'),
     device.ip || '',
     device.mac || '',
-    escapeCsvField(device.hostname || 'Unknown'),
     escapeCsvField(device.manufacturer || 'Unknown'),
     escapeCsvField(device.os || 'Unknown'),
     escapeCsvField(device.osVersion || ''),
@@ -107,12 +108,13 @@ export function formatTable(devices) {
     return 'No devices found.';
   }
 
-  const headers = ['IP', 'MAC', 'Hostname', 'Manufacturer', 'OS', 'Usage'];
+  // Hostname first for easy recognition
+  const headers = ['Hostname', 'IP', 'MAC', 'Manufacturer', 'OS', 'Usage'];
 
   const rows = devices.map((device) => [
+    truncate(device.hostname || '(unknown)', 25),
     device.ip || '',
     device.mac || '',
-    truncate(device.hostname || 'Unknown', 20),
     truncate(device.manufacturer || 'Unknown', 20),
     truncate(device.os || 'Unknown', 15),
     truncate(device.usage || 'Unknown', 15),
